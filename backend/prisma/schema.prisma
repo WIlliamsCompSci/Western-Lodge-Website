@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model BookingInquiry {
+  id              String        @id @default(cuid())
+  name            String
+  email           String
+  phone           String
+  checkIn         DateTime
+  checkOut        DateTime
+  roomType        RoomType
+  guests          Int
+  specialRequests String?
+  status          InquiryStatus @default(PENDING)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([email])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Room {
+  id          String   @id @default(cuid())
+  name        String
+  type        RoomType @unique
+  description String
+  price       Decimal  @db.Decimal(10, 2)
+  capacity    Int
+  amenities   String[]
+  images      String[]
+  createdAt   DateTime @default(now())
+}
+
+model GalleryItem {
+  id        String          @id @default(cuid())
+  url       String
+  alt       String
+  category  GalleryCategory
+  order     Int
+  createdAt DateTime        @default(now())
+
+  @@index([category])
+  @@index([order])
+}
+
+model Testimonial {
+  id        String   @id @default(cuid())
+  guestName String
+  location  String
+  rating    Int
+  review    String
+  date      DateTime
+  featured  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([featured])
+}
+
+model ContactSubmission {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  subject   String
+  message   String
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([createdAt])
+}
+
+enum RoomType {
+  STANDARD
+  DELUXE
+  SUITE
+}
+
+enum InquiryStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum GalleryCategory {
+  ROOMS
+  AMENITIES
+  EXTERIOR
+  DINING
+  SURROUNDINGS
+}
