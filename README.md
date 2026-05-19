@@ -1,6 +1,6 @@
 # Western Highway Lodge
 
-Premium boutique hotel website for Western Highway Lodge — a tropical coastal retreat in Marabut, Samar Province, Philippines.
+Website for Western Highway Lodge in Samar
 
 ---
 
