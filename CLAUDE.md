@@ -58,7 +58,7 @@ Western-Lodge-Website/
 - `src/components/layout/` — Navbar, Footer
 - `src/components/booking/` — BookingForm, BookingModal, BookingSuccess
 - `src/components/animations/` — Framer Motion wrappers
-- `src/components/ui/` — Reusable cards (RoomCard, TestimonialCard, AttractionCard, AmenityItem, GalleryGrid, SectionHeading)
+- `src/components/ui/` — Reusable cards (RoomCard, AttractionCard, AmenityItem, GalleryGrid, SectionHeading)
 - `src/lib/` — API wrapper functions, constants, utilities, custom hooks
 - `src/types/` — TypeScript interfaces + Zod schemas
 
@@ -167,18 +167,16 @@ Each page section is a Client Component that receives data as props:
 
 - **HeroSection** — Full-screen hero with video background + overlays + dual CTAs
 - **AboutSection** — Asymmetric 2-column (parallax image + story)
-- **RoomsSection** — Grid of RoomCards, staggered animation
+- **RoomsSection** — 2-column grid of RoomCards (md: 2 cols, lg: 2 cols), staggered animation. Full descriptions + all amenities visible.
 - **AmenitiesSection** — 6-item glassmorphic grid
-- **GallerySection** — Bento grid (6 items with varied aspect ratios + lightbox)
-- **TestimonialsSection** — Carousel (Embla) of TestimonialCards
+- **GallerySection** — Bento grid (6 items with varied aspect ratios + lightbox), no captions shown on image click
 - **AttractionsSection** — 4 AttractionCards grid
 - **BookingCtaSection** — Full-width CTA with parallax image
 - **ContactSection** — 2-column (contact info + contact form)
 
 ### UI Components
 Reusable, props-driven components:
-- **RoomCard** — Room image, amenities, price badge, type badge, CTA button
-- **TestimonialCard** — Star rating, quote, guest avatar, name/location
+- **RoomCard** — Room image/description/amenities, price badge, type badge, capacity, CTA button. Full descriptions visible.
 - **AttractionCard** — Icon, name, description, distance badge
 - **AmenityItem** — Icon + label
 - **GalleryGrid** — 6-item bento layout with Framer Motion + lightbox
@@ -186,14 +184,22 @@ Reusable, props-driven components:
 - **MapEmbed** — Google Maps iframe wrapper
 
 ### Animations
-All Framer Motion variants are centralized in `frontend/src/components/animations/variants.ts`:
-- `fadeInUp`, `fadeInLeft`, `fadeInRight` — scroll-triggered via `whileInView`
-- `staggerContainer` + `staggerItem` — for grids/lists
-- `cardHover` — scale + shadow on hover
-- `modalBackdrop` + `modalPanel` — backdrop blur + spring entrance
+All Framer Motion variants are centralized in `frontend/src/components/animations/variants.ts`.
+
+**Performance Optimizations for Lower-End Devices**:
+- Reduced durations: `fadeInUp` 0.5s (was 0.7s), `heroText` 0.6s (was 0.9s), etc.
+- Removed expensive GPU-blocking operations: filter blur (kept opacity + transform only), boxShadow (replaced with scale + opacity)
+- Reduced stagger: `staggerChildren` 0.08s (was 0.12s)
+- All motion components use `gpu-accelerated` utility class: `will-change: transform, opacity; backface-visibility: hidden; perspective: 1000px`
+
+**Variants**:
+- `fadeInUp`, `fadeInLeft`, `fadeInRight` — opacity + transform only, scroll-triggered via `whileInView`
+- `staggerContainer` + `staggerItem` — for grids/lists (stagger 0.08s)
+- `cardHover` — scale 1.02 + translateY only, no shadow
+- `modalBackdrop` + `modalPanel` — backdrop fade + spring scale entrance
 - `successCheck` — SVG pathLength animation for success confirmation
 
-Wrappers: `FadeInUp`, `StaggerContainer`, `ParallaxWrapper` for common patterns.
+**Wrappers**: `FadeInUp`, `StaggerContainer`, `ParallaxWrapper` — all apply `gpu-accelerated` class for consistent performance.
 
 ---
 
@@ -206,12 +212,14 @@ Wrappers: `FadeInUp`, `StaggerContainer`, `ParallaxWrapper` for common patterns.
 ### Backend Prisma Models
 `backend/prisma/schema.prisma`:
 - **BookingInquiry** — Stores guest booking inquiries (status: PENDING/CONFIRMED/CANCELLED)
-- **Room** — Hotel rooms (type: STANDARD/DELUXE/SUITE)
+- **Room** — Hotel rooms (type: SINGLE/DOUBLE_BUNK/STUDIO/STUDIO_BALCONY/TWIN/FAMILY_STUDIO/SUITE)
 - **GalleryItem** — Gallery photos (category: ROOMS/AMENITIES/EXTERIOR/DINING/SURROUNDINGS)
 - **Testimonial** — Guest reviews (featured flag for homepage carousel)
 - **ContactSubmission** — Contact form submissions
 
-Enums: `RoomType`, `InquiryStatus`, `GalleryCategory`
+**Important**: Room types and pricing are now tiered based on guest count. See `STATIC_ROOMS` in `constants.ts` for pricing tiers (e.g., Family Studio and Suite have variable rates by Pax).
+
+Enums: `RoomType` (7 types), `InquiryStatus`, `GalleryCategory`
 
 ---
 
@@ -257,22 +265,22 @@ curl http://localhost:4000/api/gallery
 # Get featured testimonials
 curl http://localhost:4000/api/testimonials?featured=true
 
-# Submit booking inquiry
+# Submit booking inquiry (use actual room type: SINGLE, STUDIO, SUITE, etc.)
 curl -X POST http://localhost:4000/api/inquiries \
   -H "Content-Type: application/json" \
-  -d '{"name":"Test","email":"test@test.com","phone":"09123456789","checkIn":"2025-06-01","checkOut":"2025-06-05","roomType":"STANDARD","guests":2}'
+  -d '{"name":"Test","email":"test@test.com","phone":"09123456789","checkIn":"2025-06-01","checkOut":"2025-06-05","roomType":"STUDIO","guests":2}'
 
 # Get inquiries (requires admin secret)
 curl -H "x-admin-secret: your-secret" http://localhost:4000/api/inquiries
 ```
 
 ### Frontend Checks
-- Visit `http://localhost:3000` — all sections render
+- Visit `http://localhost:3000` — all sections render without Guest Stories section
 - Scroll — navbar transitions from transparent to opaque
 - Click "Reserve Now" — BookingModal opens with animation
 - Submit booking form — success state shows animated checkmark
-- Click gallery images — lightbox opens with full-screen image (no captions)
-- Testimonials carousel — drag/swipe works on mobile
+- Click gallery images — lightbox opens with full-screen image (no title captions)
+- Room cards — show full descriptions, all amenities, price badges, type badges (SINGLE, STUDIO, SUITE, etc.)
 - Contact form — submit triggers toast notification
 - Responsive breakpoints — test at 375px (mobile), 768px (tablet), 1280px (desktop), 1920px+ (ultrawide)
 
@@ -310,10 +318,12 @@ curl -H "x-admin-secret: your-secret" http://localhost:4000/api/inquiries
 
 - **Zod v3 locked in frontend** — do not upgrade (hookform resolver incompatibility)
 - **Font weights in globals.css** — must be explicitly defined in `@theme` for utilities to work
-- **No external image CDNs** — all images local to `frontend/public/`
+- **No external image CDNs** — all images local to `frontend/public/` (currently `/western-lodge.png`)
 - **Tailwind v4 CSS-first** — configuration goes in `globals.css`, not config file
 - **Backend offline gracefully** — frontend uses static fallbacks in `constants.ts`
 - **Admin endpoints require header** — GET `/api/inquiries` requires `x-admin-secret`
+- **Room types are now 7 types** — SINGLE, DOUBLE_BUNK, STUDIO, STUDIO_BALCONY, TWIN, FAMILY_STUDIO, SUITE (not 3 generic types)
+- **Modal scrollbar handling** — `scrollbar-gutter: stable` + `.modal-scrollbar` CSS class prevents layout shift on scroll
 
 ---
 
